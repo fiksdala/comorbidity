@@ -1419,7 +1419,3 @@ get_ahrq_2022 = function(
   # Return as data.frame
   as.data.frame(dt)
 }
-
-
-
-
