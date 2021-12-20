@@ -1,37 +1,39 @@
-
-library(dplyr)
-
+library(data.table)
+load('R/sysdata.rda')
 # Download file
+destfile_path = "AHRQ-Elixhauser/sas-parse/icd10cm_2022_1/CMR-Reference-File-v2022-1.xlsx"
 download.file(url = "https://www.hcup-us.ahrq.gov/toolssoftware/comorbidityicd10/CMR-Reference-File-v2022-1.xlsx",
-              destfile = "AHRQ-Elixhauser/sas-parse/icd10cm_2022_1/CMR-Reference-File-v2022-1.xlsx")
+              destfile = destfile_path)
 
 # Import data stored in tab "DX_to_Comorb_Mapping"
 elix_ref_2022 <-
-  readxl::read_excel("CMR-Reference-File-v2022-1.xlsx",
+  readxl::read_excel(destfile_path,
                      sheet = "DX_to_Comorb_Mapping",
                      skip = 1)
-
-elix_ref_2022_refined <-
-  elix_ref_2022 %>% select(-c("ICD-10-CM Code Description", "# Comorbidities"))
+elix_ref_2022 <- as.data.table(elix_ref_2022)
+elix_ref_2022_refined <- elix_ref_2022[
+  , 
+  !c("ICD-10-CM Code Description", "# Comorbidities")
+]
 
 comrb_name <- colnames(elix_ref_2022_refined)
 
 map_list2022 <- list()
 for (i in 2:dim(elix_ref_2022_refined)[2]) {
-  comorb_icd <-
-    elix_ref_2022_refined[, c(1, i)] %>% 
-    filter(.[[2]] == 1) %>% 
-    pull(`ICD-10-CM Diagnosis`)
+  comorb_icd <- elix_ref_2022_refined[, ..ixs] 
+  comorb_icd <- comorb_icd[comorb_icd[[2]] == 1] 
+  comorb_icd <- comorb_icd[, "ICD-10-CM Diagnosis"]
   colname <- comrb_name[i]
   tmp <- list(comorb_icd)
   map_list2022[colname] <- tmp
 }
 
 # Import data stored in tab "Comorbidity_Measures"
-elix_ref_poa_2022 <- readxl::read_excel("CMR-Reference-File-v2022-1.xlsx", 
+elix_ref_poa_2022 <- readxl::read_excel(destfile_path, 
                                         sheet = "Comorbidity_Measures", 
-                                        skip = 1) %>%
-  filter(.[[3]] == "Yes")
+                                        skip = 1) 
+elix_ref_poa_2022 <- as.data.table(elix_ref_poa_2022)
+elix_ref_poa_2022[elix_ref_poa_2022[[3]] == "Yes"]  
 
 poa_yes <- c(
   "ANEMDEF",
@@ -220,17 +222,5 @@ Elixhauser2022Formats <-
 saveRDS(Elixhauser2022Formats, 
         file = 'AHRQ-Elixhauser/sas-formats/icd10cm_2022_1/Elixhauser2022Formats.Rds')
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+# Remove downloaded data
+file.remove(destfile_path)

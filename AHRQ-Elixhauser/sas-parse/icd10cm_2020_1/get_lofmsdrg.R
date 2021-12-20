@@ -1,5 +1,5 @@
 library(stringr)
-library(dplyr)
+library(data.table)
 
 # Make lofmsdrg from comformat_icd10cm_2020_1.txt
 download.file(
@@ -23,15 +23,15 @@ convert_interval = function(interval) {
 }
 
 format_msdrg = function(x) {
-  x %>%
-    str_split(',') %>% # Separate intervals
-    unlist() %>% # Unlist 
-    str_trim() %>% # Trim whitespace
-    .[.!=""] %>% # Remove blanks
-    sapply(convert_interval) %>% # convert to numeric intervals
-    unlist() %>% # clean up
-    unname() %>% # clean up 
-    as.vector() # keep consistent with vectors
+  x <- str_split(x, ',') # Separate intervals
+  x <- unlist(x) # Unlist 
+  x <- str_trim(x) # Trim whitespace
+  x <- x[x!=""] # Remove blanks
+  x <- sapply(x, convert_interval) # convert to numeric intervals
+  x <- unlist(x) # clean up
+  x <- unname(x)  # clean up 
+  x <- as.vector(x) # keep consistent with vectors
+  x
 }
 
 make_lofmsdrg <- function(sas_AHRQ_raw){
@@ -47,9 +47,9 @@ make_lofmsdrg <- function(sas_AHRQ_raw){
   for (i in raw_msdrg){
     # Get value labels
     if (grepl("VALUE", i)){
-      split_label = str_split(i, 'VALUE')[[1]][[2]] %>%
-        str_trim() %>%
-        str_split(" ")
+      split_label = str_split(i, 'VALUE')[[1]][[2]] 
+      split_label <- str_trim(split_label) 
+      split_label <- str_split(split_label, " ")
       msdrg_labels[[split_label[[1]][1]]] = list()
       last_value = split_label[[1]][1]
     }
