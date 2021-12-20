@@ -4,11 +4,11 @@ library(data.table)
 # Make lofmsdrg from comformat_icd10cm_2020_1.txt
 download.file(
   url = "https://www.hcup-us.AHRQ.gov/toolssoftware/comorbidityicd10/comformat_icd10cm_2020_1.txt",
-  destfile = "AHRQ-Elixhauser/sas-parse/icd10cm_2020_1/comformat_icd10cm_2020_1.txt"
+  destfile = "data-raw/icd10cm_2020_1/comformat_icd10cm_2020_1.txt"
 )
 
 # Read in data
-sas_path <- "AHRQ-Elixhauser/sas-parse/icd10cm_2020_1/comformat_icd10cm_2020_1.txt"
+sas_path <- "data-raw/icd10cm_2020_1/comformat_icd10cm_2020_1.txt"
 sas_AHRQ_raw <- readLines(sas_path)
 
 
@@ -24,31 +24,31 @@ convert_interval = function(interval) {
 
 format_msdrg = function(x) {
   x <- str_split(x, ',') # Separate intervals
-  x <- unlist(x) # Unlist 
+  x <- unlist(x) # Unlist
   x <- str_trim(x) # Trim whitespace
   x <- x[x!=""] # Remove blanks
   x <- sapply(x, convert_interval) # convert to numeric intervals
   x <- unlist(x) # clean up
-  x <- unname(x)  # clean up 
+  x <- unname(x)  # clean up
   x <- as.vector(x) # keep consistent with vectors
   x
 }
 
 make_lofmsdrg <- function(sas_AHRQ_raw){
-  raw_msdrg = sas_AHRQ_raw[-(1:grep("ICD-10 MS-DRG V37 Formats", 
+  raw_msdrg = sas_AHRQ_raw[-(1:grep("ICD-10 MS-DRG V37 Formats",
                                     sas_AHRQ_raw))] # Skip to MS-DRG
-  raw_msdrg = raw_msdrg[raw_msdrg!="" & 
-                          raw_msdrg!="Run;" & 
+  raw_msdrg = raw_msdrg[raw_msdrg!="" &
+                          raw_msdrg!="Run;" &
                           raw_msdrg!="   "] # Drop empty and run
   raw_msdrg = str_trim(raw_msdrg)
-  
+
   msdrg_labels = list()
   msdrg_num_unformated = c()
   for (i in raw_msdrg){
     # Get value labels
     if (grepl("VALUE", i)){
-      split_label = str_split(i, 'VALUE')[[1]][[2]] 
-      split_label <- str_trim(split_label) 
+      split_label = str_split(i, 'VALUE')[[1]][[2]]
+      split_label <- str_trim(split_label)
       split_label <- str_split(split_label, " ")
       msdrg_labels[[split_label[[1]][1]]] = list()
       last_value = split_label[[1]][1]
@@ -65,9 +65,6 @@ make_lofmsdrg <- function(sas_AHRQ_raw){
   msdrg_labels
 }
 lofmsdrg = make_lofmsdrg(sas_AHRQ_raw)
-
-# Save lofmsdrg as .Rds
-saveRDS(lofmsdrg, 'AHRQ-Elixhauser/sas-formats/icd10cm_2020_1/icd10cm_2020_1_lofmsdrg.Rds')
 
 # Remove comformat_icd10cm_2020_1.txt
 file.remove(sas_path)

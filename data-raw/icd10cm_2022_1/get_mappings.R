@@ -1,7 +1,7 @@
 library(data.table)
 load('R/sysdata.rda')
 # Download file
-destfile_path = "AHRQ-Elixhauser/sas-parse/icd10cm_2022_1/CMR-Reference-File-v2022-1.xlsx"
+destfile_path = "data-raw/icd10cm_2022_1/CMR-Reference-File-v2022-1.xlsx"
 download.file(url = "https://www.hcup-us.ahrq.gov/toolssoftware/comorbidityicd10/CMR-Reference-File-v2022-1.xlsx",
               destfile = destfile_path)
 
@@ -12,7 +12,7 @@ elix_ref_2022 <-
                      skip = 1)
 elix_ref_2022 <- as.data.table(elix_ref_2022)
 elix_ref_2022_refined <- elix_ref_2022[
-  , 
+  ,
   !c("ICD-10-CM Code Description", "# Comorbidities")
 ]
 
@@ -20,8 +20,8 @@ comrb_name <- colnames(elix_ref_2022_refined)
 
 map_list2022 <- list()
 for (i in 2:dim(elix_ref_2022_refined)[2]) {
-  comorb_icd <- elix_ref_2022_refined[, ..ixs] 
-  comorb_icd <- comorb_icd[comorb_icd[[2]] == 1] 
+  comorb_icd <- elix_ref_2022_refined[, ..ixs]
+  comorb_icd <- comorb_icd[comorb_icd[[2]] == 1]
   comorb_icd <- comorb_icd[, "ICD-10-CM Diagnosis"]
   colname <- comrb_name[i]
   tmp <- list(comorb_icd)
@@ -29,16 +29,16 @@ for (i in 2:dim(elix_ref_2022_refined)[2]) {
 }
 
 # Import data stored in tab "Comorbidity_Measures"
-elix_ref_poa_2022 <- readxl::read_excel(destfile_path, 
-                                        sheet = "Comorbidity_Measures", 
-                                        skip = 1) 
+elix_ref_poa_2022 <- readxl::read_excel(destfile_path,
+                                        sheet = "Comorbidity_Measures",
+                                        skip = 1)
 elix_ref_poa_2022 <- as.data.table(elix_ref_poa_2022)
-elix_ref_poa_2022[elix_ref_poa_2022[[3]] == "Yes"]  
+elix_ref_poa_2022[elix_ref_poa_2022[[3]] == "Yes"]
 
 poa_yes <- c(
   "ANEMDEF",
   "BLDLOSS",
-  "CBVD", 
+  "CBVD",
   "CBVD_POA",
   "CBVD_SQLA",
   "COAG",
@@ -63,9 +63,9 @@ for(i in 1:length(poa_yes)){
   poaxmpt_v39fmt  <- c(poaxmpt_v39fmt, map_list2022[[poa_yes[i]]])
 }
 
-# Create a list named "ElixhauserAHRQ2022Map" 
-# poaxmpt_v33fmt through poaxmpt_v38fmt are imported 
-# from "ElixhauserAHRQ2021Map" available under "Elixhauser2021Formats" 
+# Create a list named "ElixhauserAHRQ2022Map"
+# poaxmpt_v33fmt through poaxmpt_v38fmt are imported
+# from "ElixhauserAHRQ2021Map" available under "Elixhauser2021Formats"
 ElixhauserAHRQ2022Map <- list(
   comfmt = map_list2022,
   poaxmpt_v33fmt = Elixhauser2021Formats$ElixhauserAHRQ2021Map$poaxmpt_v33fmt,
@@ -80,55 +80,55 @@ ElixhauserAHRQ2022Map <- list(
 # Define and save PreExclusion comorbidities in AHRQ format:
 # (see CMR_Mapping_Program_v2022-1.sas lines 132-136)
 ElixhauserAHRQ2022PreExclusion <- c(
-  "CMR_AIDS", 
-  "CMR_ALCOHOL",     
-  "CMR_ANEMDEF",      
-  "CMR_AUTOIMMUNE", 
-  "CMR_BLDLOSS",  
-  "CMR_CANCER_LYMPH", 
-  "CMR_CANCER_LEUK",  
-  "CMR_CANCER_METS", 
-  "CMR_CANCER_NSITU", 
-  "CMR_CANCER_SOLID", 
-  "CMR_CBVD_SQLA",   
-  "CMR_CBVD_POA",     
-  "CMR_CBVD_NPOA",  
-  "CMR_CBVD",      
-  "CMR_HF", 
-  "CMR_COAG",  
-  "CMR_DEMENTIA",     
-  "CMR_DEPRESS",     
-  "CMR_DIAB_UNCX", 
-  "CMR_DIAB_CX",      
-  "CMR_DRUG_ABUSE",  
-  "CMR_HTN_CX",       
-  "CMR_HTN_UNCX",   
-  "CMR_LIVER_MLD", 
-  "CMR_LIVER_SEV",    
-  "CMR_LUNG_CHRONIC", 
-  "CMR_NEURO_MOVT", 
-  "CMR_NEURO_OTH",    
-  "CMR_NEURO_SEIZ",  
-  "CMR_OBESECMR_PARALYSIS",  
-  "CMR_PERIVASC",  
-  "CMR_PSYCHOSES",    
-  "CMR_PULMCIRC",     
-  "CMR_RENLFL_MOD",  
+  "CMR_AIDS",
+  "CMR_ALCOHOL",
+  "CMR_ANEMDEF",
+  "CMR_AUTOIMMUNE",
+  "CMR_BLDLOSS",
+  "CMR_CANCER_LYMPH",
+  "CMR_CANCER_LEUK",
+  "CMR_CANCER_METS",
+  "CMR_CANCER_NSITU",
+  "CMR_CANCER_SOLID",
+  "CMR_CBVD_SQLA",
+  "CMR_CBVD_POA",
+  "CMR_CBVD_NPOA",
+  "CMR_CBVD",
+  "CMR_HF",
+  "CMR_COAG",
+  "CMR_DEMENTIA",
+  "CMR_DEPRESS",
+  "CMR_DIAB_UNCX",
+  "CMR_DIAB_CX",
+  "CMR_DRUG_ABUSE",
+  "CMR_HTN_CX",
+  "CMR_HTN_UNCX",
+  "CMR_LIVER_MLD",
+  "CMR_LIVER_SEV",
+  "CMR_LUNG_CHRONIC",
+  "CMR_NEURO_MOVT",
+  "CMR_NEURO_OTH",
+  "CMR_NEURO_SEIZ",
+  "CMR_OBESECMR_PARALYSIS",
+  "CMR_PERIVASC",
+  "CMR_PSYCHOSES",
+  "CMR_PULMCIRC",
+  "CMR_RENLFL_MOD",
   "CMR_RENLFL_SEV",
-  "CMR_THYROID_HYPO", 
-  "CMR_THYROID_OTH", 
-  "CMR_ULCER_PEPTIC", 
-  "CMR_VALVE",      
+  "CMR_THYROID_HYPO",
+  "CMR_THYROID_OTH",
+  "CMR_ULCER_PEPTIC",
+  "CMR_VALVE",
   "CMR_WGHTLOSS"
 )
 
 # Define and save final comorbidities in AHRQ format:
 ElixhauserAHRQ2022Abbr = c(
-  "CMR_AIDS"         = 'Acquired immune deficiency syndrome', 
-  "CMR_ALCOHOL"      = 'Alcohol abuse',    
-  "CMR_ANEMDEF"      = 'Deficiency anemias',      
+  "CMR_AIDS"         = 'Acquired immune deficiency syndrome',
+  "CMR_ALCOHOL"      = 'Alcohol abuse',
+  "CMR_ANEMDEF"      = 'Deficiency anemias',
   "CMR_AUTOIMMUNE"   = 'Autoimmune conditions',
-  "CMR_BLDLOSS"      = 'Chronic blood loss anemia',   
+  "CMR_BLDLOSS"      = 'Chronic blood loss anemia',
   "CMR_CANCER_LEUK"  = 'Leukemia',
   "CMR_CANCER_LYMPH" = 'Lymphoma',
   "CMR_CANCER_METS"  = 'Metastatic cancer',
@@ -145,29 +145,29 @@ ElixhauserAHRQ2022Abbr = c(
   "CMR_DIAB_CX"      = 'Diabetes with chronic complications',
   "CMR_DIAB_UNCX"    = 'Diabetes without chronic complications',
   "CMR_DRUG_ABUSE"   = 'Drug abuse',
-  "CMR_HTN_CX"       = 'Hypertension, complicated', 
+  "CMR_HTN_CX"       = 'Hypertension, complicated',
   "CMR_HTN_UNCX"     = 'Hypertension, uncomplicated',
   "CMR_LIVER_MLD"    = 'Liver disease, mild',
   "CMR_LIVER_SEV"    = 'Liver disease, moderate to severe',
   "CMR_LUNG_CHRONIC" = 'Chronic pulmonary disease',
   "CMR_NEURO_MOVT"   = 'Neurological disorders affecting movement',
-  "CMR_NEURO_OTH"    = 'Other neurological disorders', 
-  "CMR_NEURO_SEIZ"   = 'Seizures and epilepsy',            
-  "CMR_OBESE"        = 'Obesity',    
+  "CMR_NEURO_OTH"    = 'Other neurological disorders',
+  "CMR_NEURO_SEIZ"   = 'Seizures and epilepsy',
+  "CMR_OBESE"        = 'Obesity',
   "CMR_PARALYSIS"    = 'Paralysis',
   "CMR_PERIVASC"     = 'Peripheral vascular disease',
   "CMR_PSYCHOSES"    = 'Psychoses',
-  "CMR_PULMCIRC"     = 'Pulmonary circulation disease',    
+  "CMR_PULMCIRC"     = 'Pulmonary circulation disease',
   "CMR_RENLFL_MOD"   = 'Renal failure, moderate',
-  "CMR_RENLFL_SEV"   = 'Renal failure, severe', 
+  "CMR_RENLFL_SEV"   = 'Renal failure, severe',
   "CMR_THYROID_HYPO" = 'Hypothyroidism',
   "CMR_THYROID_OTH"  = 'Other thyroid disorders',
-  "CMR_ULCER_PEPTIC" = 'Peptic ulcer disease x bleeding',     
+  "CMR_ULCER_PEPTIC" = 'Peptic ulcer disease x bleeding',
   "CMR_VALVE"        = 'Valvular disease',
-  "CMR_WGHTLOSS"     = 'Weight loss'  
+  "CMR_WGHTLOSS"     = 'Weight loss'
   )
 
-# Define and save value labels 
+# Define and save value labels
 # (see Comorb_ICD10CM_Format_v2022-1.sas)
 ElixhauserAHRQ2022Labels = c(
   'CMR_AIDS' = 'Acquired immune deficiency syndrome',
@@ -187,7 +187,7 @@ ElixhauserAHRQ2022Labels = c(
   'CMR_DIAB_CX' = 'Diabetes with chronic complications',
   'CMR_DIAB_UNCX' = 'Diabetes without chronic complications',
   'CMR_DRUG_ABUSE' = 'Drug abuse',
-  'CMR_HF' = 'Heart failure', 
+  'CMR_HF' = 'Heart failure',
   'CMR_HTN_CX' = 'Hypertension, complicated',
   'CMR_HTN_UNCX' = 'Hypertension, uncomplicated',
   'CMR_LIVER_MLD' = 'Liver disease, mild',
@@ -218,9 +218,6 @@ Elixhauser2022Formats <-
     ElixhauserAHRQ2022Map = ElixhauserAHRQ2022Map,
     ElixhauserAHRQ2022PreExclusion = ElixhauserAHRQ2022PreExclusion
   )
-
-saveRDS(Elixhauser2022Formats, 
-        file = 'AHRQ-Elixhauser/sas-formats/icd10cm_2022_1/Elixhauser2022Formats.Rds')
 
 # Remove downloaded data
 file.remove(destfile_path)
