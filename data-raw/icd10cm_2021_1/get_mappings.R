@@ -2,19 +2,19 @@
 # Download file
 download.file(
   url = "https://www.hcup-us.ahrq.gov/toolssoftware/comorbidityicd10/ElixhauserComorbidity_v2021-1.zip",
-  destfile = "AHRQ-Elixhauser/sas-parse/icd10cm_2021_1/ElixhauserComorbidity_v2021-1.zip"
+  destfile = "data-raw/icd10cm_2021_1/ElixhauserComorbidity_v2021-1.zip"
 )
 # Unzip
-unzip("AHRQ-Elixhauser/sas-parse/icd10cm_2021_1/ElixhauserComorbidity_v2021-1.zip",
-      exdir = 'AHRQ-Elixhauser/sas-parse/icd10cm_2021_1/ElixhauserComorbidity_v2021-1')
+unzip("data-raw/icd10cm_2021_1/ElixhauserComorbidity_v2021-1.zip",
+      exdir = 'data-raw/icd10cm_2021_1/ElixhauserComorbidity_v2021-1')
 
 # Get raw SAS code line-by-line
 raw_format = readLines(
-  "AHRQ-Elixhauser/sas-parse/icd10cm_2021_1/ElixhauserComorbidity_v2021-1/Comorb_ICD10CM_Format_v2021-1.sas"
+  "data-raw/icd10cm_2021_1/ElixhauserComorbidity_v2021-1/Comorb_ICD10CM_Format_v2021-1.sas"
   )
 
 # Remove quotes, commas, and whitespace
-trim_format = trimws(gsub(',', '', gsub('"', "", raw_format))) 
+trim_format = trimws(gsub(',', '', gsub('"', "", raw_format)))
 # Remove 'proc' lines
 trim_format = trim_format[!grepl('Proc', trim_format)]
 # Remove 'run' lines
@@ -23,7 +23,7 @@ trim_format = trim_format[!grepl(';', trim_format)]
 trim_format = trim_format[!grepl('other', trim_format)]
 
 # Separate vector by blank line
-format_list = split(trim_format[trim_format!=''], 
+format_list = split(trim_format[trim_format!=''],
       cumsum(trim_format=="")[trim_format!=''])
 
 # Remove extraneous
@@ -31,10 +31,10 @@ format_list = format_list[3:length(format_list)] # Header stuff
 
 # Split into value groups
 new_values = unlist(
-  lapply(format_list, 
+  lapply(format_list,
        function(x) {
          any(grepl('Value \\$', x))
-       }) 
+       })
   )
 
 ElixhauserAHRQ2021Map = sapply(1:max(cumsum(new_values)),
@@ -51,17 +51,17 @@ names(ElixhauserAHRQ2021Map) = unlist(
 )
 
 # Drop 'value' elements in comfmt
-ElixhauserAHRQ2021Map$comfmt = sapply(ElixhauserAHRQ2021Map$comfmt, 
+ElixhauserAHRQ2021Map$comfmt = sapply(ElixhauserAHRQ2021Map$comfmt,
        function(x) x[!grepl('Value', x)])
 
 # Get icd group names for comfmt
-names(ElixhauserAHRQ2021Map$comfmt) = sapply(ElixhauserAHRQ2021Map$comfmt, 
+names(ElixhauserAHRQ2021Map$comfmt) = sapply(ElixhauserAHRQ2021Map$comfmt,
        function(x){
          strsplit(x[grepl(' = ', x)], ' = ')[[1]][2]
        })
 
 # Drop ' = XXXX' from icd groups
-ElixhauserAHRQ2021Map$comfmt = sapply(ElixhauserAHRQ2021Map$comfmt, 
+ElixhauserAHRQ2021Map$comfmt = sapply(ElixhauserAHRQ2021Map$comfmt,
        function(x){
          x = sapply(x, function(x) {
            strsplit(x, ' = ')[[1]][1]
@@ -81,9 +81,9 @@ for (i in poaxmpt_names){
       function(x) {
         x[[1]][1]
       }
-    ) 
+    )
   )
-  
+
   # Drop 'Value' elements
   ElixhauserAHRQ2021Map[[i]] = ElixhauserAHRQ2021Map[[i]][!grepl(
     'Value', ElixhauserAHRQ2021Map[[i]])]
@@ -228,16 +228,13 @@ Elixhauser2021Formats = list(
   ElixhauserAHRQ2021PreExclusion = ElixhauserAHRQ2021PreExclusion
 )
 
-saveRDS(Elixhauser2021Formats, 
-        'AHRQ-Elixhauser/sas-formats/icd10cm_2021_1/Elixhauser2021Formats.Rds')
-
 # Remove .zip file
 file.remove(
-  "AHRQ-Elixhauser/sas-parse/icd10cm_2021_1/ElixhauserComorbidity_v2021-1.zip"
+  "data-raw/icd10cm_2021_1/ElixhauserComorbidity_v2021-1.zip"
 )
 
 # Remove unzipped folder
 unlink(
-  'AHRQ-Elixhauser/sas-parse/icd10cm_2021_1/ElixhauserComorbidity_v2021-1',
+  'data-raw/icd10cm_2021_1/ElixhauserComorbidity_v2021-1',
   recursive = T
 )

@@ -10,7 +10,7 @@
 
 get_ahrq_2020 <- function(x, id, code, assign0, drg, icd_rank) {
   ### Extract regex for internal use
-  regex <- lofregex[['elixhauser_ahrq_2020']][['icd10']]
+  regex <- lofregex[['elixhauser_ahrq_2020_icd10_quan']]
 
   ### Extract SAS DRGS and make sure id is not factor
   # make sure there are no factors (it will break when combining drgs)
