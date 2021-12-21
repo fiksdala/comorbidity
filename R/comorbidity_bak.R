@@ -1,0 +1,345 @@
+#' @title Compute comorbidity scores.
+#'
+#' @description Computes comorbidity scores such as the weighted Charlson score and the Elixhauser comorbidity score.
+#'
+#' @param x A tidy `data.frame` (or a `data.table`; `tibble`s are supported too) with one column containing an individual ID and a column containing all diagnostic codes.
+#' Extra columns other than ID and codes are discarded.
+#' Column names must be syntactically valid names, otherwise they are forced to be so by calling the [make.names()] function.
+#' @param id Column of `x` containing the individual ID.
+#' @param code Column of `x` containing diagnostic codes. Codes must be in upper case with no punctuation in order to be properly recognised.
+#' @param score The comorbidity score to compute. Possible choices are the weighted Charlson score (`charlson`), the weighted (pre 2019 AHRQ) Elixhauser score (`elixhauser`), and the 2019 AHRQ weighted Elixhauser score (`elixhauser_ahrq_2020`). Values are case-insensitive.
+#' @param assign0 Apply a hierarchy of comorbidities. If `TRUE`, should a comorbidity be present in a patient with different degrees of severity, then the milder form will be assigned to 0 and therefore not counted. By doing this, a type of comorbidity is not counted more than once in each patient. In particular, the comorbidities that are affected by this argument are:
+#' * "Mild liver disease" (`mld`) and "Moderate/severe liver disease" (`msld`) for the Charlson score;
+#' * "Diabetes" (`diab`) and "Diabetes with complications" (`diabwc`) for the Charlson score;
+#' * "Cancer" (`canc`) and "Metastatic solid tumour" (`metacanc`) for the Charlson score;
+#' * "Hypertension, uncomplicated" (`hypunc`) and "Hypertension, complicated" (`hypc`) for the Elixhauser score;
+#' * "Diabetes, uncomplicated" (`diabunc`) and "Diabetes, complicated" (`diabc`) for the Elixhauser score;
+#' * "Solid tumour" (`solidtum`) and "Metastatic cancer" (`metacanc`) for the Elixhauser score.
+#' 
+#' Note: This argument has no effect on Elixhauser AHRQ as these choices are incorporated into AHRQ calculations. If using 'elixhauser_ahrq_2020' it is recommended to specify assign0 = FALSE to avoid confusion.
+#' @param icd The version of ICD coding to use. Possible choices are ICD-9-CM (`icd9`) or ICD-10 (`icd10`). Defaults to `icd10`, and values are case-insensitive.
+#' Note: if 'elixhauser_ahrq_2020' is selected, icd must equal 'icd10'.
+#' @param factorise Return comorbidities as factors rather than numeric, where (1 = presence of comorbidity, 0 = otherwise). Defaults to `FALSE`.
+#' @param labelled Attach labels to each comorbidity, compatible with the RStudio viewer via the [utils::View()] function. Defaults to `TRUE`.
+#' @param tidy.codes Tidy diagnostic codes? If `TRUE`, all codes are converted to upper case and all non-alphanumeric characters are removed using the regular expression \code{[^[:alnum:]]}. Defaults to `TRUE`.
+#' @param drg Column of `x` that contains DRG codes associated with the encounter. Defaults to `NULL` but must be specified if score = 'elixhauser_ahrq_2020'.
+#' @param icd_rank Column of `x` that contains the rank or position of DRG codes. Defaults to `NULL` but must be specified if score = 'elixhauser_ahrq_2020'.
+#' @param poa Column of `x` that contains the present on admission status codes (e.g. 'Y', 'W', 'N', 'U'). Defaults to `NULL` but must be specified if score = 'elixhauser_ahrq_2020'.
+#' @param year Column of `x` that contains the calendar year of the admission. Defaults to `NULL`, but either `year` and `quarter` OR `icd10cm_vers` must be specified if score = 'elixhauser_ahrq_2020'.
+#' @param quarter Column of `x` that contains the calendar quarter of the admission. Defaults to `NULL`, but either `year` and `quarter` OR `icd10cm_vers` must be specified if score = 'elixhauser_ahrq_2020'.
+#' @param icd10cm_vers Column of `x` that contains the ICD10CM version. Must be specified if `year` and `quarter` are not. Must be `NULL` if `year` and `quarter` are not `NULL`. Defaults to `NULL`, but either `year` and `quarter` OR `icd10cm_vers` must be specified if score = 'elixhauser_ahrq_2020'.
+#' @return A data frame with `id`, columns relative to each comorbidity domain, comorbidity score, weighted comorbidity score, and categorisations of such scores, with one row per individual.
+#'
+#' For the Charlson score, the following variables are included in the dataset:
+#' * The `id` variable as defined by the user;
+#' * `ami`, for acute myocardial infarction;
+#' * `chf`, for congestive heart failure;
+#' * `pvd`, for peripheral vascular disease;
+#' * `cevd`, for cerebrovascular disease;
+#' * `dementia`, for dementia;
+#' * `copd`, chronic obstructive pulmonary disease;
+#' * `rheumd`, for rheumatoid disease;
+#' * `pud`, for peptic ulcer disease;
+#' * `mld`, for mild liver disease;
+#' * `diab`, for diabetes without complications;
+#' * `diabwc`, for diabetes with complications;
+#' * `hp`, for hemiplegia or paraplegia;
+#' * `rend`, for renal disease;
+#' * `canc`, for cancer (any malignancy);
+#' * `msld`, for moderate or severe liver disease;
+#' * `metacanc`, for metastatic solid tumour;
+#' * `aids`, for AIDS/HIV;
+#' * `score`, for the non-weighted version of the Charlson score;
+#' * `index`, for the non-weighted version of the grouped Charlson index;
+#' * `wscore`, for the weighted version of the Charlson score;
+#' * `windex`, for the weighted version of the grouped Charlson index.
+#'
+#' Conversely, for the Elixhauser score the dataset contains the following variables:
+#' * The `id` variable as defined by the user;
+#' * `chf`, for congestive heart failure;
+#' * `carit`, for cardiac arrhythmias;
+#' * `valv`, for valvular disease;
+#' * `pcd`, for pulmonary circulation disorders;
+#' * `pvd`, for peripheral vascular disorders;
+#' * `hypunc`, for hypertension, uncomplicated;
+#' * `hypc`, for hypertension, complicated;
+#' * `para`, for paralysis;
+#' * `ond`, for other neurological disorders;
+#' * `cpd`, for chronic pulmonary disease;
+#' * `diabunc`, for diabetes, uncomplicated;
+#' * `diabc`, for diabetes, complicated;
+#' * `hypothy`, for hypothyroidism;
+#' * `rf`, for renal failure;
+#' * `ld`, for liver disease;
+#' * `pud`, for peptic ulcer disease, excluding bleeding;
+#' * `aids`, for AIDS/HIV;
+#' * `lymph`, for lymphoma;
+#' * `metacanc`, for metastatic cancer;
+#' * `solidtum`, for solid tumour, without metastasis;
+#' * `rheumd`, for rheumatoid arthritis/collaged vascular disease;
+#' * `coag`, for coagulopathy;
+#' * `obes`, for obesity;
+#' * `wloss`, for weight loss;
+#' * `fed`, for fluid and electrolyte disorders;
+#' * `blane`, for blood loss anaemia;
+#' * `dane`, for deficiency anaemia;
+#' * `alcohol`, for alcohol abuse;
+#' * `drug`, for drug abuse;
+#' * `psycho`, for psychoses;
+#' * `depre`, for depression;
+#' * `score`, for the non-weighted version of the Elixhauser score;
+#' * `index`, for the non-weighted version of the grouped Elixhauser index;
+#' * `wscore_ahrq`, for the weighted version of the Elixhauser score using the AHRQ algorithm (Moore _et al_., 2017);
+#' * `wscore_vw`, for the weighted version of the Elixhauser score using the algorithm in van Walraven _et al_. (2009);
+#' * `windex_ahrq`, for the weighted version of the grouped Elixhauser index using the AHRQ algorithm (Moore _et al_., 2017);
+#' * `windex_vw`, for the weighted version of the grouped Elixhauser index using the algorithm in van Walraven _et al_. (2009).
+#' 
+#' For AHRQ Elixhauser (elixhauser_ahrq_2020), the dataset contains the same variables as 'Elixhauser' with the following exceptions:
+#'  * Comorbidity columns follow AHRQ's abbreviation formatting.
+#'  * In place of `hypunc` and `hypc`, those measures are combined to form `HTN_C`
+#'
+#'#' For AHRQ Elixhauser (elixhauser_ahrq_2020), the dataset contains the following:
+#' * The `id` variable as defined by the user;
+#' * `AIDS`,  Acquired immune deficiency syndrome;
+#' * `ALCOHOL`,  Alcohol abuse;
+#' * `ANEMDF`, (only if poa is supplied) Deficiency anemias;
+#' * `ARTH`,  Arthropathies;
+#' * `BLDLOSS`, (only if poa is supplied) Chronic blood loss anemia;
+#' * `CANCER_LEUK`,  Leukemia;
+#' * `CANCER_LYMPH`,  Lymphoma;
+#' * `CANCER_METS`,  Metastatic cancer;
+#' * `CANCER_NSITU`,  Solid tumor without metastasis, in situ;
+#' * `CANCER_SOLID`,  Solid tumor without metastasis, malignant;
+#' * `CBVD`, (only if poa is supplied) Cerebrovascular disease;
+#' * `CHF`, (only if poa is supplied) Congestive heart failure;
+#' * `COAG`, (only if poa is supplied) Coagulopathy;
+#' * `DEMENTIA`,  Dementia;
+#' * `DEPRESS`,  Depression;
+#' * `DIAB_CX`,  Diabetes with chronic complications;
+#' * `DIAB_UNCX`,  Diabetes without chronic complications;
+#' * `DRUG_ABUSE`,  Drug abuse;
+#' * `HTN_CX`,  Hypertension, complicated;
+#' * `HTN_UNCX`,  Hypertension, uncomplicated;
+#' * `LIVER_MLD`, (only if poa is supplied) Liver disease, mild;
+#' * `LIVER_SEV`, (only if poa is supplied) Liver disease, moderate to severe;
+#' * `LUNG_CHRONIC`,  Chronic pulmonary disease;
+#' * `NEURO_MOVT`, (only if poa is supplied) Neurological disorders affecting movement;
+#' * `NEURO_OTH`, (only if poa is supplied) Other neurological disorders;
+#' * `NEURO_SEIZ`, (only if poa is supplied) Seizures and epilepsy;
+#' * `OBESE`,  Obesity;
+#' * `PARALYSIS`, (only if poa is supplied) Paralysis;
+#' * `PERIVASC`,  Peripheral vascular disease;
+#' * `PSYCHOSES`, (only if poa is supplied) Psychoses;
+#' * `PULMCIRC`, (only if poa is supplied) Pulmonary circulation disease;
+#' * `RENLFL_MOD`, (only if poa is supplied) Renal failure, moderate;
+#' * `RENLFL_SEV`, (only if poa is supplied) Renal failure, severe;
+#' * `THYROID_HYPO`,  Hypothyroidism;
+#' * `THYROID_OTH`,  Other thyroid disorders;
+#' * `ULCER_PEPTIC`, (only if poa is supplied) Peptic ulcer with bleeding;
+#' * `VALVE`, (only if poa is supplied) Valvular disease;
+#' * `WGHTLOSS`, (only if poa is supplied) Weight loss;
+#'
+#' Labels are presented to the user when using the RStudio viewer (e.g. via the [utils::View()] function) for convenience.
+#'
+#' @details
+#' The ICD-10 and ICD-9-CM coding for the Charlson and Elixhauser scores is based on work by Quan _et al_. (2005). Weights for the Charlson score are based on the original formulation by Charlson _et al_. in 1987, while weights for the Elixhauser score are based on work by Moore _et al_. and van Walraven _et al_. Finally, the categorisation of scores and weighted scores is based on work by Menendez _et al_. See `vignette("comorbidityscores", package = "comorbidity")` for further details on the comorbidity scores and the weighting algorithm.
+#' ICD-10 and ICD-9 codes must be in upper case and with alphanumeric characters only in order to be properly recognised; set `tidy.codes = TRUE` to properly tidy the codes automatically. As a convenience, a message is printed to the R console when non-alphanumeric characters are found.
+#'
+#' @references Quan H, Sundararajan V, Halfon P, Fong A, Burnand B, Luthi JC, et al. _Coding algorithms for defining comorbidities in ICD-9-CM and ICD-10 administrative data_. Medical Care 2005; 43(11):1130-1139.
+#' @references Charlson ME, Pompei P, Ales KL, et al. _A new method of classifying prognostic comorbidity in longitudinal studies: development and validation_. Journal of Chronic Diseases 1987; 40:373-383.
+#' @references Moore BJ, White S, Washington R, Coenen N, and Elixhauser A. _Identifying increased risk of readmission and in-hospital mortality using hospital administrative data: the AHRQ Elixhauser comorbidity index_. Medical Care 2017; 55(7):698-705.
+#' @references van Walraven C, Austin PC, Jennings A, Quan H and Forster AJ. _A modification of the Elixhauser comorbidity measures into a point system for hospital death using administrative data_. Medical Care 2009; 47(6):626-633.
+#' @references Menendez ME, Neuhaus V, van Dijk CN, Ring D. _The Elixhauser comorbidity method outperforms the Charlson index in predicting inpatient death after orthopaedic surgery_. Clinical Orthopaedics and Related Research 2014; 472(9):2878-2886.
+#' @references _Healthcare Cost and Utilization Project. Elixhauser Comorbidity Software Version 3.7_ Available at https://www.hcup-us.ahrq.gov/toolssoftware/comorbidity/comorbidity.jsp 
+#' @references _Healthcare Cost and Utilization Project. Elixhauser Comorbidity Software Refined for ICD-10-CM v2021.1_ Available at https://www.hcup-us.ahrq.gov/toolssoftware/comorbidityicd10/comorbidity_icd10.jsp
+#'
+#' @examples
+#' set.seed(1)
+#' x <- data.frame(
+#'   id = sample(1:15, size = 200, replace = TRUE),
+#'   code = sample_diag(200),
+#'   stringsAsFactors = FALSE
+#' )
+#'
+#' # Charlson score based on ICD-10 diagnostic codes:
+#' comorbidity(x = x, id = "id", code = "code", score = "charlson", assign0 = FALSE)
+#'
+#' # Elixhauser score based on ICD-10 diagnostic codes:
+#' comorbidity(x = x, id = "id", code = "code", score = "elixhauser", assign0 = FALSE)
+#' @export
+
+comorbidity <- function(x, id, code, score, assign0, icd = "icd10", factorise = FALSE, labelled = TRUE, tidy.codes = TRUE, drg = NULL, icd_rank = NULL, poa = NULL, year = NULL, quarter = NULL, icd10cm_vers = NULL) {
+  ### Check arguments
+  arg_checks <- checkmate::makeAssertCollection()
+  # x must be a data.frame (or a data.table)
+  checkmate::assert_true(all(class(x[]) %in% c("data.frame", "data.table", "tbl", "tbl_df")), 
+                         add = arg_checks)
+  # id, code, score, icd must be a single string value
+  checkmate::assert_string(id, add = arg_checks)
+  checkmate::assert_string(code, add = arg_checks)
+  checkmate::assert_string(score, add = arg_checks)
+  checkmate::assert_string(icd, add = arg_checks)
+  # score must be charlson, elixhauser, elixhauser_ahrq_2020; case insensitive
+  score <- tolower(score)
+  checkmate::assert_choice(score, choices = c("charlson", 
+                                              "elixhauser",
+                                              "elixhauser_ahrq_2020",
+                                              "elixhauser_ahrq_2021"), 
+                           add = arg_checks)
+  # icd must be icd9, icd10; case insensitive
+  icd <- tolower(icd)
+  checkmate::assert_choice(icd, choices = c("icd9", "icd10"), add = arg_checks)
+  # assign0, factorise, labelled, tidy.codes, parallel must be a single boolean value
+  checkmate::assert_logical(assign0, len = 1, add = arg_checks)
+  checkmate::assert_logical(factorise, len = 1, add = arg_checks)
+  checkmate::assert_logical(labelled, len = 1, add = arg_checks)
+  checkmate::assert_logical(tidy.codes, len = 1, add = arg_checks)
+  # drg and icd_rank must be supplied when score='elixhauser_ahrq_2020'
+  checkmate::assert_true(
+    (score=='elixhauser_ahrq_2020' & !is.null(drg) & !is.null(icd_rank)) |
+      score!='elixhauser_ahrq_2020',
+    add = arg_checks
+  )
+  # icd_rank and either (year & quarter) or icd10cm_vers must not be null
+  # when score = 'elixhauser_ahrq_2021'
+  checkmate::assert_true(
+    (score=='elixhauser_ahrq_2021' & !is.null(icd_rank) & 
+       !is.null(icd10cm_vers)) | 
+      (score=='elixhauser_ahrq_2021' & 
+         !is.null(icd_rank) & 
+         !is.null(year) & 
+         !is.null(quarter)) |
+      score != 'elixhauser_ahrq_2021',
+    add = arg_checks
+  )
+  # if icd10cm_vers is specified for elixhauser_ahrq_2021, vers must be integer
+  # in (33,34,35,36,37,38)
+  checkmate::assert_true(
+    score!='elixhauser_ahrq_2021' | 
+      (score=='elixhauser_ahrq_2021' & is.null(icd10cm_vers)) |
+      (score=='elixhauser_ahrq_2021' & ifelse(is.null(icd10cm_vers), 
+                                              F, 
+                                              icd10cm_vers %in% 33:38))
+  )
+  # force names to be syntactically valid:
+  if (any(names(x) != make.names(names(x)))) {
+    names(x) <- make.names(names(x))
+    warning("Names of the input dataset 'x' have been modified by make.names(). See ?make.names() for more details.", call. = FALSE)
+  }
+  if (id != make.names(id)) {
+    id <- make.names(id)
+    warning("The input 'id' string has been modified by make.names(). See ?make.names() for more details.", call. = FALSE)
+  }
+  if (code != make.names(code)) {
+    code <- make.names(code)
+    warning("The input 'id' string has been modified by make.names(). See ?make.names() for more details.", call. = FALSE)
+  }
+  # id, code must be in x
+  checkmate::assert_subset(id, choices = names(x), add = arg_checks)
+  checkmate::assert_subset(code, choices = names(x), add = arg_checks)
+  # Report if there are any errors
+  if (!arg_checks$isEmpty()) checkmate::reportAssertions(arg_checks)
+
+  ##############################################################################
+  ## Isolate scores computed within comorbidity() vs. within other functions
+  if (score %in% c("charlson", "elixhauser")) {
+    ### Tidy codes if required
+    if (tidy.codes) x <- .tidy(x = x, code = code)
+    
+    ### Extract regex for internal use
+    regex <- lofregex[[score]][[icd]]
+    
+    ### Subset only 'id' and 'code' columns
+    if (data.table::is.data.table(x)) {
+      x <- x[, c(id, code), with = FALSE]
+    } else {
+      x <- x[, c(id, code)]
+    }
+    
+    ## Turn x into a DT
+    data.table::setDT(x)
+    
+    ### Get list of unique codes used in dataset that match comorbidities
+    loc <- sapply(regex, grep, unique(x[[code]]), value = TRUE)
+    loc <- utils::stack(loc)
+    names(loc)[1] <- code
+    
+    ### Merge list with original data.table (data.frame)
+    x <- merge(x, loc, all.x = TRUE, allow.cartesian = TRUE)
+    x[[code]] <- NULL
+    x <- unique(x)
+    
+    ### Spread wide
+    xin <- x[, c(id, "ind"), with = FALSE]
+    xin[, value := 1L]
+    x <- data.table::dcast.data.table(
+      xin, stats::as.formula(paste(id, "~ ind")), fill = 0)
+    x[["NA"]] <- NULL
+    
+    ### Add missing columns
+    for (col in names(regex)) {
+      if (is.null(x[[col]])) x[[col]] <- 0
+    }
+    data.table::setcolorder(x, c(id, names(regex)))
+    
+    ### Turn internal DT into a DF
+    data.table::setDF(x)
+    
+    ### Compute Charlson score and Charlson index
+    if (score == "charlson") {
+      x$score <- with(x, ami + chf + pvd + cevd + dementia + copd + rheumd + pud + mld * ifelse(msld == 1 & assign0, 0, 1) + diab * ifelse(diabwc == 1 & assign0, 0, 1) + diabwc + hp + rend + canc * ifelse(metacanc == 1 & assign0, 0, 1) + msld + metacanc + aids)
+      x$index <- with(x, cut(score, breaks = c(0, 1, 2.5, 4.5, Inf), labels = c("0", "1-2", "3-4", ">=5"), right = FALSE))
+      x$wscore <- with(x, ami + chf + pvd + cevd + dementia + copd + rheumd + pud + mld * ifelse(msld == 1 & assign0, 0, 1) + diab * ifelse(diabwc == 1 & assign0, 0, 1) + diabwc * 2 + hp * 2 + rend * 2 + canc * ifelse(metacanc == 1 & assign0, 0, 2) + msld * 3 + metacanc * 6 + aids * 6)
+      x$windex <- with(x, cut(wscore, breaks = c(0, 1, 2.5, 4.5, Inf), labels = c("0", "1-2", "3-4", ">=5"), right = FALSE))
+    } else {
+      ### Compute pre-2017 Elixhauser scores
+      x$score <- with(x, chf + carit + valv + pcd + pvd + hypunc * ifelse(hypc == 1 & assign0, 0, 1) + hypc + para + ond + cpd + diabunc * ifelse(diabc == 1 & assign0, 0, 1) + diabc + hypothy + rf + ld + pud + aids + lymph + metacanc + solidtum * ifelse(metacanc == 1 & assign0, 0, 1) + rheumd + coag + obes + wloss + fed + blane + dane + alcohol + drug + psycho + depre)
+      x$index <- with(x, cut(score, breaks = c(-Inf, 0, 1, 4.5, Inf), labels = c("<0", "0", "1-4", ">=5"), right = FALSE))
+      x$wscore_ahrq <- with(x, chf * 9 + carit * 0 + valv * 0 + pcd * 6 + pvd * 3 + ifelse(hypunc == 1 | hypc == 1, 1, 0) * (-1) + para * 5 + ond * 5 + cpd * 3 + diabunc * ifelse(diabc == 1 & assign0, 0, 0) + diabc * (-3) + hypothy * 0 + rf * 6 + ld * 4 + pud * 0 + aids * 0 + lymph * 6 + metacanc * 14 + solidtum * ifelse(metacanc == 1 & assign0, 0, 7) + rheumd * 0 + coag * 11 + obes * (-5) + wloss * 9 + fed * 11 + blane * (-3) + dane * (-2) + alcohol * (-1) + drug * (-7) + psycho * (-5) + depre * (-5))
+      x$wscore_vw <- with(x, chf * 7 + carit * 5 + valv * (-1) + pcd * 4 + pvd * 2 + ifelse(hypunc == 1 | hypc == 1, 1, 0) * 0 + para * 7 + ond * 6 + cpd * 3 + diabunc * ifelse(diabc == 1 & assign0, 0, 0) + diabc * 0 + hypothy * 0 + rf * 5 + ld * 11 + pud * 0 + aids * 0 + lymph * 9 + metacanc * 12 + solidtum * ifelse(metacanc == 1 & assign0, 0, 4) + rheumd * 0 + coag * 3 + obes * (-4) + wloss * 6 + fed * 5 + blane * (-2) + dane * (-2) + alcohol * 0 + drug * (-7) + psycho * 0 + depre * (-3))
+      x$windex_ahrq <- with(x, cut(wscore_ahrq, breaks = c(-Inf, 0, 1, 4.5, Inf), labels = c("<0", "0", "1-4", ">=5"), right = FALSE))
+      x$windex_vw <- with(x, cut(wscore_vw, breaks = c(-Inf, 0, 1, 4.5, Inf), labels = c("<0", "0", "1-4", ">=5"), right = FALSE))
+    } 
+  } else {
+    if (score == 'elixhauser_ahrq_2020') {
+      x <- get_ahrq_2020(x, id, code, assign0, drg, icd_rank)
+    } else if (score == 'elixhauser_ahrq_2021') {
+      x <- get_ahrq_2021(
+        df = x,
+        patient_id = id,
+        icd_code = code,
+        icd_seq = icd_rank,
+        poa_code = poa,
+        year = year,
+        quarter = quarter,
+        icd10cm_vers = icd10cm_vers, # If NULL, vers derived from year/quarter columns
+        return_n_unique = T # For N comorbidity vs. N ICD-Codes per comorbdiity
+      )
+    } else {
+      x <- get_ahrq_2022(
+        df = x,
+        patient_id = id,
+        icd_code = code,
+        icd_seq = icd_rank,
+        poa_code = poa,
+        year = year,
+        quarter = quarter,
+        icd10cm_vers = icd10cm_vers, # If NULL, vers derived from year/quarter columns
+        return_n_unique = T # For N comorbidity vs. N ICD-Codes per comorbdiity
+      )
+    }
+  }
+
+  ### Check output for possible unknown-state errors
+  .check_output(x = x, id = id, score = score)
+
+  ### Factorise comorbidities if requested
+  if (factorise) x <- .factorise(x = x, score = score)
+
+  ### Label variables for RStudio viewer if requested
+  if (labelled) x <- .labelled(x = x, score = score)
+
+  ### Return a tidy data.frame
+  return(x)
+}
+

@@ -441,8 +441,7 @@ get_ahrq_2021 = function(
   poa_code = NULL,
   year = NULL,
   quarter = NULL,
-  icd10cm_vers = NULL, # If NULL, vers derived from year/quarter columns
-  return_n_unique = T # For N comorbidity vs. N ICD-Codes per comorbdiity
+  icd10cm_vers = NULL # If NULL, vers derived from year/quarter columns
 ) {
 
   # Set poa value based on whether poa_code is supplied
@@ -887,9 +886,9 @@ get_ahrq_2021 = function(
   keep_vars = keep_vars[keep_vars %in% colnames(dt)]
   dt = dt[, ..keep_vars]
 
-  # Compute total score
-  dt[, score := rowSums(.SD),
-     .SDcols = keep_vars[-1]]
+  # # Compute total score
+  # dt[, score := rowSums(.SD),
+  #    .SDcols = keep_vars[-1]]
 
   # Rename id back to user-specified
   data.table::setnames(dt, new_col_names, names(new_col_names),
@@ -907,8 +906,7 @@ get_ahrq_2022 = function(
   poa_code = NULL,
   year = NULL,
   quarter = NULL,
-  icd10cm_vers = NULL, # If NULL, vers derived from year/quarter columns
-  return_n_unique = T # For N comorbidity vs. N ICD-Codes per comorbdiity
+  icd10cm_vers = NULL # If NULL, vers derived from year/quarter columns
 ) {
 
   # Set poa value based on whether poa_code is supplied
@@ -1408,9 +1406,9 @@ get_ahrq_2022 = function(
   keep_vars = keep_vars[keep_vars %in% colnames(dt)]
   dt = dt[, ..keep_vars]
 
-  # Compute total score
-  dt[, score := rowSums(.SD),
-     .SDcols = keep_vars[-1]]
+  # # Compute total score
+  # dt[, score := rowSums(.SD),
+  #    .SDcols = keep_vars[-1]]
 
   # Rename id back to user-specified
   data.table::setnames(dt, new_col_names, names(new_col_names),
