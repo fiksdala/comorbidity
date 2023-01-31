@@ -143,7 +143,8 @@ comorbidity <-  function(x, id, code, map, assign0, factorise = FALSE, labelled 
   checkmate::assert_choice(map, choices = c(names(.maps),
                                             'elixhauser_ahrq_2020',
                                             'elixhauser_ahrq_2021',
-                                            'elixhauser_ahrq_2022'),
+                                            'elixhauser_ahrq_2022',
+                                            'elixhauser_ahrq_2023'),
 											  add = arg_checks)
 
   # assign0, labelled, tidy.codes must be a single boolean value
@@ -172,69 +173,69 @@ comorbidity <-  function(x, id, code, map, assign0, factorise = FALSE, labelled 
   ##############################################################################
   ## Isolate scores computed within comorbidity() vs. within other functions
   if (map %in% names(.maps)) {
-
-  ### Tidy codes if required
-  if (tidy.codes) x <- .tidy(x = x, code = code)
-
-  ### Create regex from a list of codes
-  regex <- lapply(X = .maps[[map]], FUN = .codes_to_regex)
-
-  ### Subset only 'id' and 'code' columns
-  if (data.table::is.data.table(x)) {
-    mv <- c(id, code)
-    x <- x[, ..mv]
+  
+    ### Tidy codes if required
+    if (tidy.codes) x <- .tidy(x = x, code = code)
+  
+    ### Create regex from a list of codes
+    regex <- lapply(X = .maps[[map]], FUN = .codes_to_regex)
+  
+    ### Subset only 'id' and 'code' columns
+    if (data.table::is.data.table(x)) {
+      mv <- c(id, code)
+      x <- x[, ..mv]
+    } else {
+      x <- x[, c(id, code)]
+    }
+  
+    ### Turn x into a DT
+    data.table::setDT(x)
+  
+    ### Deal with missing codes
+    mvb <- id
+    backup <- x[, ..mvb]
+    backup <- unique(backup)
+    x <- stats::na.omit(x)
+    # If there are no rows left (= user passed missing data only), then error:
+    if (nrow(x) == 0) stop("No non-missing data, please check your input data", call. = FALSE)
+  
+    ### Get list of unique codes used in dataset that match comorbidities
+    ..cd <- unique(x[[code]])
+    loc <- sapply(X = regex, FUN = function(p) stringi::stri_subset_regex(str = ..cd, pattern = p))
+    loc <- utils::stack(loc)
+    data.table::setDT(loc)
+    data.table::setnames(x = loc, new = c(code, "ind"))
+  
+    ### Merge list with original data.table (data.frame)
+    x <- merge(x, loc, all.x = TRUE, allow.cartesian = TRUE, by = code)
+    x[, (code) := NULL]
+    x <- unique(x)
+  
+    ### Spread wide
+    mv <- c(id, "ind")
+    xin <- x[, ..mv]
+    xin[, value := 1L]
+    x <- data.table::dcast.data.table(xin, stats::as.formula(paste(id, "~ ind")), fill = 0)
+    if (!is.null(x[["NA"]])) x[, `NA` := NULL]
+  
+    ### Restore IDs
+    x <- merge(x, backup, by = id, all.y = TRUE, )
+    data.table::setnafill(x = x, type = "const", fill = 0L)
+  
+    ### Add missing columns
+    for (col in names(regex)) {
+      if (is.null(x[[col]])) x[, (col) := 0L]
+    }
+    data.table::setcolorder(x, c(id, names(regex)))
+  
+    ### Assign zero-values to avoid double-counting comorbidities, if requested
+    if (assign0) {
+      x <- .assign0(x = x, map = map)
+    }
+  
+    ### Turn internal DT into a DF
+    data.table::setDF(x)
   } else {
-    x <- x[, c(id, code)]
-  }
-
-  ### Turn x into a DT
-  data.table::setDT(x)
-
-  ### Deal with missing codes
-  mvb <- id
-  backup <- x[, ..mvb]
-  backup <- unique(backup)
-  x <- stats::na.omit(x)
-  # If there are no rows left (= user passed missing data only), then error:
-  if (nrow(x) == 0) stop("No non-missing data, please check your input data", call. = FALSE)
-
-  ### Get list of unique codes used in dataset that match comorbidities
-  ..cd <- unique(x[[code]])
-  loc <- sapply(X = regex, FUN = function(p) stringi::stri_subset_regex(str = ..cd, pattern = p))
-  loc <- utils::stack(loc)
-  data.table::setDT(loc)
-  data.table::setnames(x = loc, new = c(code, "ind"))
-
-  ### Merge list with original data.table (data.frame)
-  x <- merge(x, loc, all.x = TRUE, allow.cartesian = TRUE, by = code)
-  x[, (code) := NULL]
-  x <- unique(x)
-
-  ### Spread wide
-  mv <- c(id, "ind")
-  xin <- x[, ..mv]
-  xin[, value := 1L]
-  x <- data.table::dcast.data.table(xin, stats::as.formula(paste(id, "~ ind")), fill = 0)
-  if (!is.null(x[["NA"]])) x[, `NA` := NULL]
-
-  ### Restore IDs
-  x <- merge(x, backup, by = id, all.y = TRUE, )
-  data.table::setnafill(x = x, type = "const", fill = 0L)
-
-  ### Add missing columns
-  for (col in names(regex)) {
-    if (is.null(x[[col]])) x[, (col) := 0L]
-  }
-  data.table::setcolorder(x, c(id, names(regex)))
-
-  ### Assign zero-values to avoid double-counting comorbidities, if requested
-  if (assign0) {
-    x <- .assign0(x = x, map = map)
-  }
-
-  ### Turn internal DT into a DF
-  data.table::setDF(x)
-} else {
 
     if (map == 'elixhauser_ahrq_2020') {
       x <- get_ahrq_2020(x, id, code, assign0, drg, icd_rank)
@@ -251,7 +252,7 @@ comorbidity <-  function(x, id, code, map, assign0, factorise = FALSE, labelled 
         icd10cm_vers = icd10cm_vers # If NULL, vers derived from year/quarter columns
       )
 
-    } else {
+    } else if (map == 'elixhauser_ahrq_2022') {
       x <- get_ahrq_2022(
         df = x,
         patient_id = id,
@@ -262,9 +263,19 @@ comorbidity <-  function(x, id, code, map, assign0, factorise = FALSE, labelled 
         quarter = quarter,
         icd10cm_vers = icd10cm_vers # If NULL, vers derived from year/quarter columns
       )
+    } else {
+      x <- get_ahrq_2023(
+        df = x,
+        patient_id = id,
+        icd_code = code,
+        icd_seq = icd_rank,
+        poa_code = poa,
+        year = year,
+        quarter = quarter,
+        icd10cm_vers = icd10cm_vers # If NULL, vers derived from year/quarter columns
+      )
     }
-
-}
+  }
   ### Check output for possible unknown-state errors
   .check_output(x = x, id = id)
 

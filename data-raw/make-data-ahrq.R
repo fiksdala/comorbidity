@@ -32,7 +32,14 @@ source('AHRQ-Elixhauser/sas-parse/icd10cm_2021_1/get_mappings.R')
 ########################################################################################################################
 ### Internal Dataset #4: Get icd10cm_2022_1 icd mappings
 # Creates a list Elixhauser2022Formats with the following objects: 
-# ElixhauserAHRQ2022Map, ElixhauserAHRQ2022Abbr, ElixhauserAHRQ2022Labels
+# ElixhauserAHRQ2022Map, ElixhauserAHRQ2022Abbr, ElixhauserAHRQ2022Labels, 
+# ElixhauserAHRQ2022PreExclusion
 source('AHRQ-Elixhauser/sas-parse/icd10cm_2022_1/get_mappings.R')
+
+########################################################################################################################
+### Internal Dataset #4: Get icd10cm_2023_1 icd mappings
+# Creates a list Elixhauser2023Formats with the following objects:
+# ElixhauserAHRQ2022Map, ElixhauserAHRQ2022Abbr, ElixhauserAHRQ2023PreExclusion
+source('AHRQ-Elixhauser/sas-parse/icd10cm_2023_1/get_mappings.R')
 
 ########################################################################################################################

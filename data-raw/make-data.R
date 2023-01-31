@@ -40,7 +40,7 @@ usethis::use_data(icd10_2009, overwrite = TRUE)
 ########################################################################################################################
 ### Dataset #2: ICD-10 codes, 2011 version
 # Download dataset
-download.file(url = "ftp://ftp.cdc.gov/pub/Health_Statistics/NCHS/Publications/ICD10/allvalid2011 (detailed%20titles%20headings).xls", destfile = "data-raw/allvalid2011.xls", mode = "wb")
+download.file(url = "ftp://ftp.cdc.gov/pub/Health_Statistics/NCHS/Publications/ICD10/allvalid2011%20%28detailed%20titles%20headings%29.xls", destfile = "data-raw/allvalid2011.xls")
 
 # Read data in Excel format
 icd10_2011 <- readxl::read_excel(

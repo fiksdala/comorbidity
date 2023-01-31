@@ -1,7 +1,7 @@
 # Empty list
 .weights <- list()
 
-for (w in c(names(.maps), "elixhauser_ahrq_2022")) {
+for (w in c(names(.maps), "elixhauser_ahrq_2022", "elixhauser_ahrq_2023")) {
   if (grepl(pattern = "charlson", x = w)) {
     # Charlson-compatible weights:
     # Original Charlson weights
@@ -205,6 +205,13 @@ for (w in c(names(.maps), "elixhauser_ahrq_2022")) {
       VALVE        =  0,
       WGHTLOSS     = 14
     )
+
+    # No changes to weights from 2022-2023
+    .weights[["elixhauser_ahrq_2023"]][["rw"]] = 
+      .weights[["elixhauser_ahrq_2022"]][["rw"]]
+
+    .weights[["elixhauser_ahrq_2023"]][["mw"]] = 
+      .weights[["elixhauser_ahrq_2022"]][["mw"]]
 
   }
   usethis::ui_done(x = "Done with score: '{w}'!")

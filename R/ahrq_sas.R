@@ -1037,6 +1037,10 @@ get_ahrq_2022 = function(
        ICDVER := 38]
     dt[year == 2021 & quarter < 4,
        ICDVER := 38]
+    dt[year == 2021 & quarter == 4,
+       ICDVER := 39]
+    dt[year == 2022 & quarter < 4,
+       ICDVER := 39]
   } else {
     dt[, ICDVER := icd10cm_vers]
   }
@@ -1432,3 +1436,268 @@ get_ahrq_2022 = function(
   # Return as data.frame
   as.data.frame(dt)
 }
+
+#' @internal
+#' @export
+get_ahrq_2023 = function(
+    df,
+    patient_id = NULL,
+    icd_code = NULL,
+    icd_seq = NULL,
+    poa_code = NULL,
+    year = NULL,
+    quarter = NULL,
+    icd10cm_vers = NULL, # If NULL, vers derived from year/quarter columns
+    return_n_unique = T # For N comorbidity vs. N ICD-Codes per comorbdiity
+) {
+  
+  # Set poa value based on whether poa_code is supplied
+  if (is.null(poa_code)) {
+    poa = F
+  } else {
+    poa = T
+  }
+  
+  # Make df into dt
+  dt = data.table::data.table(df)
+  
+  # rename cols
+  new_col_names = c()
+  new_col_names[patient_id] = 'id'
+  new_col_names[icd_code] = 'code'
+  new_col_names[icd_seq] = 'icd_seq'
+  new_col_names[poa_code] = 'poa_code'
+  new_col_names[year] = 'year'
+  new_col_names[quarter] = 'quarter'
+  
+  data.table::setnames(dt, names(new_col_names), new_col_names,
+                       skip_absent = T)
+  
+  # NOTE: There were no major changes from 2022 to 2023. As such I've removed
+  # all SAS source code and most other comments. Please review the SAS code 
+  # available here: https://www.hcup-us.ahrq.gov/toolssoftware/comorbidityicd10/CMR_v2023-1.zip
+  # for more information, or see comments embedded in get_ahrq_2022()
+  
+  if (is.null(icd10cm_vers)) {
+    dt[, ICDVER := 39] # !R: Default value
+    dt[year == 2015 & quarter == 4,
+       ICDVER := 33]
+    dt[year == 2016 & quarter < 4,
+       ICDVER := 33]
+    dt[year == 2016 & quarter == 4,
+       ICDVER := 34]
+    dt[year == 2017 & quarter < 4,
+       ICDVER := 34]
+    dt[year == 2017 & quarter == 4,
+       ICDVER := 35]
+    dt[year == 2018 & quarter < 4,
+       ICDVER := 35]
+    dt[year == 2018 & quarter == 4,
+       ICDVER := 36]
+    dt[year == 2019 & quarter < 4,
+       ICDVER := 36]
+    dt[year == 2019 & quarter == 4,
+       ICDVER := 37]
+    dt[year == 2020 & quarter < 4,
+       ICDVER := 37]
+    dt[year == 2020 & quarter == 4,
+       ICDVER := 38]
+    dt[year == 2021 & quarter < 4,
+       ICDVER := 38]
+    dt[year == 2021 & quarter == 4,
+       ICDVER := 39]
+    dt[year == 2022 & quarter < 4,
+       ICDVER := 39]
+    dt[year == 2022 & quarter == 4,
+       ICDVER := 40]
+    dt[year == 2023 & quarter < 4,
+       ICDVER := 40]
+  } else {
+    dt[, ICDVER := icd10cm_vers]
+  }
+  
+  VALANYPOA = c(
+    "AIDS",
+    "ALCOHOL",
+    "AUTOIMMUNE",
+    "LUNG_CHRONIC",
+    "DEMENTIA",
+    "DEPRESS",
+    "DIAB_UNCX",
+    "DIAB_CX",
+    "DRUG_ABUSE",
+    "HTN_UNCX",
+    "HTN_CX",
+    "THYROID_HYPO",
+    "THYROID_OTH",
+    "CANCER_LYMPH",
+    "CANCER_LEUK",
+    "CANCER_METS",
+    "OBESE",
+    "PERIVASC",
+    "CANCER_SOLID",
+    "CANCER_NSITU"
+  )
+  
+  VALPOA = c(
+    "ANEMDEF",
+    "BLDLOSS",
+    "HF",
+    "COAG",
+    "LIVER_MLD",
+    "LIVER_SEV",
+    "NEURO_MOVT",
+    "NEURO_SEIZ",
+    "NEURO_OTH",
+    "PARALYSIS",
+    "PSYCHOSES",
+    "PULMCIRC",
+    "RENLFL_MOD",
+    "RENLFL_SEV",
+    "ULCER_PEPTIC",
+    "WGHTLOSS",
+    "CBVD_POA",
+    "CBVD_SQLA",
+    "VALVE"
+  )
+  
+  if (poa) {
+    dt[, c('CBVD_NPOA', 'CBVD', 'EXEMPTPOA1') := 0] ###### "EXEMPTPOA" changed to "EXEMPTPOA1"
+  } else {
+    dt[, c('CBVD_NPOA', 'CBVD') := NA]
+  }
+  
+  dt[icd_seq==1, code := ''] # !R: Omit 1st diagnosis
+  dxvalues = Elixhauser2023Formats$ElixhauserAHRQ2023Map$comfmt
+  # !R: !VALPOA
+  for (i in names(dxvalues)[!names(dxvalues) %in% VALPOA]) {
+    dt[, paste0(i) := as.numeric(code %in% dxvalues[[i]])]
+  }
+  
+  dt[DRUG_ABUSEPSYCHOSES==1, DRUG_ABUSE := 1]
+  dt[HFHTN_CX==1, HTN_CX := 1]
+  dt[HTN_CXRENLFL_SEV==1, HTN_CX := 1]
+  dt[HFHTN_CXRENLFL_SEV==1, HTN_CX := 1]
+  dt[ALCOHOLLIVER_MLD==1, ALCOHOL := 1]
+  dt[VALVE_AUTOIMMUNE==1, AUTOIMMUNE := 1]
+  
+  if (poa) {
+    # !R: if icd10cm_vers = NULL, formats extracted from year/quarter (see above)
+    dt[ICDVER == 33,
+       EXEMPTPOA := as.numeric(
+         code %in%
+           Elixhauser2023Formats$ElixhauserAHRQ2023Map$poaxmpt_v33fmt)]
+    dt[ICDVER == 34,
+       EXEMPTPOA := as.numeric(
+         code %in%
+           Elixhauser2023Formats$ElixhauserAHRQ2023Map$poaxmpt_v34fmt)]
+    dt[ICDVER == 35,
+       EXEMPTPOA := as.numeric(
+         code %in%
+           Elixhauser2023Formats$ElixhauserAHRQ2023Map$poaxmpt_v35fmt)]
+    dt[ICDVER == 36,
+       EXEMPTPOA := as.numeric(
+         code %in%
+           Elixhauser2023Formats$ElixhauserAHRQ2023Map$poaxmpt_v36fmt)]
+    dt[ICDVER == 37,
+       EXEMPTPOA := as.numeric(
+         code %in%
+           Elixhauser2023Formats$ElixhauserAHRQ2023Map$poaxmpt_v37fmt)]
+    dt[ICDVER == 38,
+       EXEMPTPOA := as.numeric(
+         code %in%
+           Elixhauser2023Formats$ElixhauserAHRQ2023Map$poaxmpt_v38fmt)]
+    dt[ICDVER == 39,
+       EXEMPTPOA := as.numeric(
+         code %in%
+           Elixhauser2023Formats$ElixhauserAHRQ2023Map$poaxmpt_v39fmt)]
+    dt[ICDVER == 40,
+       EXEMPTPOA := as.numeric(
+         code %in%
+           Elixhauser2023Formats$ElixhauserAHRQ2023Map$poaxmpt_v40fmt)]
+    
+    # !R: VALPOA w/conditions
+    for (i in VALPOA) {
+      dt[EXEMPTPOA==1 | (EXEMPTPOA==0 & poa_code %in% c('Y', 'W')),
+         paste0(i) := as.numeric(code %in% dxvalues[[i]])]
+    }
+    dt[(EXEMPTPOA==1 | (EXEMPTPOA==0 & poa_code %in% c('Y', 'W'))) &
+         DRUG_ABUSEPSYCHOSES==1,
+       PSYCHOSES := 1]
+    dt[(EXEMPTPOA==1 | (EXEMPTPOA==0 & poa_code %in% c('Y', 'W'))) &
+         HFHTN_CX==1,
+       HF := 1]
+    dt[(EXEMPTPOA==1 | (EXEMPTPOA==0 & poa_code %in% c('Y', 'W'))) &
+         HTN_CXRENLFL_SEV==1,
+       RENLFL_SEV := 1]
+    dt[(EXEMPTPOA==1 | (EXEMPTPOA==0 & poa_code %in% c('Y', 'W'))) &
+         HFHTN_CXRENLFL_SEV==1,
+       c('HF', 'RENLFL_SEV') := 1]
+    dt[(EXEMPTPOA==1 | (EXEMPTPOA==0 & poa_code %in% c('Y', 'W'))) &
+         CBVD_SQLAPARALYSIS==1,
+       c('PARALYSIS', 'CBVD_SQLA') := 1]
+    dt[(EXEMPTPOA==1 | (EXEMPTPOA==0 & poa_code %in% c('Y', 'W'))) &
+         ALCOHOLLIVER_MLD==1,
+       LIVER_MLD := 1]
+    dt[(EXEMPTPOA==1 | (EXEMPTPOA==0 & poa_code %in% c('Y', 'W'))) &
+         VALVE_AUTOIMMUNE==1,
+       VALVE := 1]
+    
+    dt[EXEMPTPOA==0 & poa_code %in% c('N', 'U') &
+         code %in% dxvalues$CBVD_POA,
+       c('CBVD_NPOA') := 1]
+  }
+  
+  #! R pivot_wider to get pre-exclusion assignments + IDs
+  #! R make any NA -> 0
+  for (i in names(dt)) {
+    dt[is.na(get(i)), (i):=0]
+  }
+  
+  to_pivot = c('id',
+               Elixhauser2023Formats$ElixhauserAHRQ2023PreExclusion)
+  
+  # Remove columns in to_pivot that do not exist if poa=F
+  to_pivot = to_pivot[to_pivot %in% colnames(dt)]
+  dt = dt[, ..to_pivot]
+  
+  dt = dt[, lapply(.SD, sum), by=id,
+          .SDcols = to_pivot[-1]]
+  
+  dt[, names(dt)[-1] := lapply(.SD, function(x) as.integer(x!=0)),
+     .SDcols = names(dt)[-1]]
+  
+  dt[DIAB_CX==1, DIAB_UNCX := 0]
+  
+  dt[HTN_CX==1, HTN_UNCX := 0]
+  
+  dt[CANCER_METS==1, c('CANCER_SOLID', 'CANCER_NSITU') := 0]
+  
+  dt[CANCER_SOLID==1, CANCER_NSITU := 0]
+  
+  if (poa) {
+    dt[LIVER_SEV==1, LIVER_MLD := 0]
+    dt[RENLFL_SEV==1, RENLFL_MOD := 0]
+    dt[(CBVD_POA==1) | (CBVD_POA==0 & CBVD_NPOA==0 & CBVD_SQLA==1),
+       CBVD := 1]
+  }
+  
+  # !R: Get final comorbidities
+  keep_vars = c('id',
+                Elixhauser2023Formats$ElixhauserAHRQ2023Abbr)
+  # Drop vars that don't exist if poa=T
+  keep_vars = keep_vars[keep_vars %in% colnames(dt)]
+  dt = dt[, ..keep_vars]
+  
+  # Compute total score
+  # dt[, score := rowSums(.SD),
+  #    .SDcols = keep_vars[-1]]
+  
+  # Rename id back to user-specified
+  data.table::setnames(dt, new_col_names, names(new_col_names),
+                       skip_absent = T)
+  
+  # Return as data.frame
+  as.data.frame(dt)
+}
+
