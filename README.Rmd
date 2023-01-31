@@ -227,7 +227,7 @@ elixhauser_ahrq_2020 <- comorbidity(
   year='DischargeFiscalYearNBR',
   quarter='QuarterNBR'
 )
-?comorbidity
+
 elixhauser_ahrq_2020
 ```
 
