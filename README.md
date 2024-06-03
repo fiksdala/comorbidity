@@ -3,14 +3,16 @@
 
 # This is a fork of the {comorbidity} package.
 
+__I originally created this fork in 2020 as part of my job as a Data Scientist for Brigham and Women's Hospital, with the eventual goal of merging with the existing `comorbidity` package. In the past 1-2 years, we have de-prioritized maintaining this repo in favor of non-R approaches. Those solutions are proprietary and will not be hosted here or incorporated into any existing R packages. As a result, this fork is no longer being actively maintained and will be archived in the near future.__
+
 There have been a limited number of people who have used this fork in
 their own work since I first created it back in 2020. If anyone finds
 that their code that utlized the `Main` branch of this fork no longer
 functions, please see the `retired` branch. For those who have been using
 the `updated_elixhauser` branch, you may continue to do so. The `Main`
-branch currently reflects `updated_elixhauser`, but may be changed
+branch currently reflects `updated_elixhauser`~~, but may be changed
 substantiatlly in the future as I attempt to prepare this fork for
-possible merging with ellessenne’s version.
+possible merging with ellessenne’s version~~.
 
 # The {comorbidity} Package: Computing Comorbidity Scores <img src="man/figures/hex.png" width = "150" align="right" />
 
